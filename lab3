@@ -1,0 +1,120 @@
+import heapq
+
+class PuzzleState:
+    def __init__(self, board, parent=None, move="", depth=0, goal_state=None):
+        self.board = board
+        self.parent = parent
+        self.move = move
+        self.depth = depth  # g(n): cost from root
+        self.goal_state = goal_state
+        self.h = self.calculate_heuristic()  # h(n): misplaced tiles
+        self.f = self.depth + self.h         # f(n) = g(n) + h(n)
+
+    def calculate_heuristic(self):
+        """Calculates misplaced tiles (excluding blank space 0)."""
+        misplaced = 0
+        for i in range(3):
+            for j in range(3):
+                val = self.board[i][j]
+                if val != 0 and val != self.goal_state[i][j]:
+                    misplaced += 1
+        return misplaced
+
+    def find_blank(self):
+        """Locates row, col of the blank space (0)."""
+        for r in range(3):
+            for c in range(3):
+                if self.board[r][c] == 0:
+                    return r, c
+
+    def get_neighbors(self):
+        """Generates valid moves for the blank tile."""
+        neighbors = []
+        r, c = self.find_blank()
+        
+        moves = {
+            'Up': (r - 1, c),
+            'Down': (r + 1, c),
+            'Left': (r, c - 1),
+            'Right': (r, c + 1)
+        }
+
+        for move_name, (nr, nc) in moves.items():
+            if 0 <= nr < 3 and 0 <= nc < 3:
+                new_board = [row[:] for row in self.board]
+                new_board[r][c], new_board[nr][nc] = new_board[nr][nc], new_board[r][c]
+                neighbors.append(
+                    PuzzleState(new_board, parent=self, move=move_name, depth=self.depth + 1, goal_state=self.goal_state)
+                )
+        return neighbors
+
+    def get_board_tuple(self):
+        return tuple(tuple(row) for row in self.board)
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+
+def get_grid_input(state_type):
+    """Helper function to read a 3x3 matrix from user input."""
+    print(f"\nEnter the {state_type} (3 rows, space-separated numbers, use 0 for blank):")
+    grid = []
+    for i in range(3):
+        while True:
+            try:
+                row = list(map(int, input(f"Row {i + 1}: ").strip().split()))
+                if len(row) != 3:
+                    print("Error: Please enter exactly 3 numbers per row.")
+                    continue
+                grid.append(row)
+                break
+            except ValueError:
+                print("Invalid input. Please enter numbers only.")
+    return grid
+
+
+def solve_8_puzzle(initial_board, goal_board):
+    root = PuzzleState(initial_board, goal_state=goal_board)
+    
+    open_set = []
+    heapq.heappush(open_set, root)
+    visited = set()
+
+    print("\nSolving using A* Search algorithm...\n")
+
+    while open_set:
+        current = heapq.heappop(open_set)
+
+        if current.h == 0:
+            path = []
+            curr = current
+            while curr:
+                path.append(curr)
+                curr = curr.parent
+            path.reverse()
+
+            print("Goal State Reached!\n")
+            print("--- Step-by-Step Solution Path ---")
+            for step, state in enumerate(path):
+                print(f"Step {step}: Move = '{state.move or 'Start'}' | g(n) = {state.depth}, h(n) = {state.h}, f(n) = {state.f}")
+                for row in state.board:
+                    print(" ", row)
+                print()
+            return
+
+        visited.add(current.get_board_tuple())
+
+        for neighbor in current.get_neighbors():
+            if neighbor.get_board_tuple() not in visited:
+                heapq.heappush(open_set, neighbor)
+
+    print("No solution found.")
+
+
+if __name__ == "__main__":
+    print("=== 8-PUZZLE SOLVER (A* SEARCH) ===")
+    
+    initial_state = get_grid_input("INITIAL STATE")
+    goal_state = get_grid_input("GOAL STATE")
+    
+    solve_8_puzzle(initial_state, goal_state)
